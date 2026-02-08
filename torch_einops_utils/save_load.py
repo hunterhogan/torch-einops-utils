@@ -27,18 +27,17 @@ def save_load(
 
         @wraps(_orig_init)
         def __init__(self, *args, **kwargs):
-            _config = pickle.dumps((args, kwargs))
-
-            setattr(self, config_instance_var_name, _config)
+            setattr(self, config_instance_var_name, (args, kwargs))
             _orig_init(self, *args, **kwargs)
 
         def _save(self, path, overwrite = True):
             path = Path(path)
             assert overwrite or not path.exists()
 
+            config = getattr(self, config_instance_var_name)
             pkg = dict(
                 model = self.state_dict(),
-                config = getattr(self, config_instance_var_name),
+                config = pickle.dumps(config),
                 version = version,
             )
 
