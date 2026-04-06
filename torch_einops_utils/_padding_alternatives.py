@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Callable, Literal, overload
+from collections.abc import Callable, Sequence
+from typing import Literal, overload
 
 from torch import Tensor, cat, device, stack, tensor
 

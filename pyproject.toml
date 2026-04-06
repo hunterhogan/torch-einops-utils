@@ -3,7 +3,7 @@ name = "torch-einops-utils"
 version = "0.0.29"
 description = "Personal utility functions"
 readme = "README.md"
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Phil Wang", email = "lucidrains@gmail.com" }]
@@ -12,7 +12,7 @@ keywords = ["einops", "torch"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]

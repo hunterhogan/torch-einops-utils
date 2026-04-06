@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Callable, Literal, overload
+from collections.abc import Callable, Sequence
+from typing import Literal, overload
 
 import torch.nn.functional as F
 from torch import Tensor, cat, device, stack, tensor
@@ -114,7 +114,7 @@ def pad_sequence(
         max_len: int = max(lens)
 
         pad_fn: Callable[..., Tensor] = pad_left_at_dim if left else pad_right_at_dim
-        padded_tensors: list[Tensor] = [pad_fn(t, max_len - t_len, dim=dim, value=value) for t, t_len in zip(tensors, lens)]
+        padded_tensors: list[Tensor] = [pad_fn(t, max_len - t_len, dim=dim, value=value) for t, t_len in zip(tensors, lens, strict=True)]
 
         output = stack(padded_tensors, dim=dim_stack) if return_stacked else padded_tensors
 
