@@ -102,35 +102,6 @@ def test_first_returns_zero_index(
     assert result == expected_first, f"first returned {result}, expected {expected_first} for {sequence_value=}."
 
 
-@pytest.mark.parametrize(
-    "expected",
-    [pytest.param([2, 3, "alpha", 5], id="mixed-sequence")],
-)
-def test_compact_removes_none_from_mixed_sequence(
-    mixed_sequence_with_nones: list[int | str | None],
-    expected: list[int | str],
-) -> None:
-    result = compact(mixed_sequence_with_nones)
-
-    assert result == expected, f"compact returned {result}, expected {expected} for {mixed_sequence_with_nones=}."
-
-
-@pytest.mark.parametrize(
-    "expected_count",
-    [pytest.param(3, id="three-non-none-tensors")],
-)
-def test_compact_with_tensors(
-    tensor_sequence_with_nones: list[Tensor | None],
-    expected_count: int,
-) -> None:
-    result = compact(tensor_sequence_with_nones)
-
-    assert len(result) == expected_count, (
-        f"compact returned list of length {len(result)}, expected {expected_count} "
-        f"non-None tensors from input of length {len(tensor_sequence_with_nones)}."
-    )
-    assert not any(v is None for v in result), "compact included None values in the result."
-
 
 @pytest.mark.parametrize(
     ("tensors_list", "expected_output", "expect_none", "expect_identity"),

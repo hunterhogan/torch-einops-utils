@@ -7,11 +7,8 @@ from torch_einops_utils._types import (
     DimAndValue as DimAndValue,
     DVar as DVar,
     PSpec as PSpec,
-    SupportsGetItem as SupportsGetItem,
-    SupportsMod as SupportsMod,
-    SupportsRMod as SupportsRMod,
+    SupportsIntIndex as SupportsIntIndex,
     T_co as T_co,
-    T_contra as T_contra,
     TVar as TVar
 )
 

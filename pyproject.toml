@@ -1,6 +1,6 @@
 [project]
 name = "torch-einops-utils"
-version = "0.0.29"
+version = "0.0.31"
 description = "Personal utility functions"
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -17,7 +17,11 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-dependencies = ["einops>=0.8.1", "torch>=2.5", "typing_extensions>=4.0.0"]
+dependencies = [
+  "einops>=0.8.1",
+  "torch>=2.5",
+  "typing_extensions>=4.0.0"
+]
 
 [project.urls]
 Homepage = "https://pypi.org/project/torch-einops-utils/"
@@ -33,6 +37,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build]
+include = [
+  "torch_einops_utils",
+  "tests",
+  "LICENSE",
+  "README.md",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["torch_einops_utils"]
@@ -63,6 +75,7 @@ line-length = 140
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
+  "C901",
   "COM812",
   "D",
   "E402",

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import torch
@@ -21,12 +20,12 @@ class SimpleNet(nn.Module):
         return self.net(x)
 
 
-def test_save_load():
+def test_save_load(tmp_path: Path) -> None:
     model = SimpleNet(10, 20)
-    path = Path("test_model.pt")
+    path: Path = tmp_path / "test_model.pt"
 
     # Save the model
-    model.save(str(path))
+    model.save(path)
 
     # Create another model with different weights
     model2 = SimpleNet(10, 20)
@@ -35,35 +34,27 @@ def test_save_load():
     assert not torch.allclose(model.net.weight, model2.net.weight)
 
     # Load back
-    model2.load(str(path))
+    model2.load(path)
 
     # Validate weights are the same
     assert torch.allclose(model.net.weight, model2.net.weight)
 
-    # Cleanup
-    if path.exists():
-        os.remove(path)
 
-
-def test_init_and_load():
+def test_init_and_load(tmp_path: Path) -> None:
     dim, hidden_dim = 16, 32
     model = SimpleNet(dim, hidden_dim)
-    path = Path("test_model_init.pt")
+    path: Path = tmp_path / "test_model_init.pt"
 
     # Save the model
-    model.save(str(path))
+    model.save(path)
 
     # Initialize and load from file
-    model2 = SimpleNet.init_and_load(str(path))
+    model2 = SimpleNet.init_and_load(path)
 
     # Validate attributes and weights
     assert model2.dim == dim
     assert model2.hidden_dim == hidden_dim
     assert torch.allclose(model.net.weight, model2.net.weight)
-
-    # Cleanup
-    if path.exists():
-        os.remove(path)
 
 
 # nested save load
@@ -104,7 +95,7 @@ class GrandParent(nn.Module):
         self.param = nn.Parameter(torch.randn(1))
 
 
-def test_sophisticated_nested_save_load():
+def test_sophisticated_nested_save_load(tmp_path: Path) -> None:
     gc = GrandChild(dim=8)
     c1 = Child(name="c1")
     c2 = Child(name="c2")
@@ -115,13 +106,13 @@ def test_sophisticated_nested_save_load():
 
     gp = GrandParent(p1=p1, p2=p2)
 
-    path = Path("sophisticated_test.pt")
+    path: Path = tmp_path / "sophisticated_test.pt"
 
     # Save
-    gp.save(str(path))
+    gp.save(path)
 
     # Load
-    gp2 = GrandParent.init_and_load(str(path))
+    gp2 = GrandParent.init_and_load(path)
 
     # Verify structure
     assert gp2.p1.child1.name == "c1"
@@ -135,5 +126,18 @@ def test_sophisticated_nested_save_load():
     assert torch.allclose(gp.p1.child1.param, gp2.p1.child1.param)
     assert torch.allclose(gp.p2.child1.grandchild.param, gp2.p2.child1.grandchild.param)
 
-    if path.exists():
-        os.remove(path)
+
+def test_save_load_without_parens(tmp_path: Path) -> None:
+
+    @save_load
+    class SimpleNet(nn.Module):
+        def __init__(self, dim):
+            super().__init__()
+            self.linear = nn.Linear(dim, 1)
+
+    model = SimpleNet(10)
+    path: Path = tmp_path / "simple.pt"
+    model.save(path)
+    reloaded_model = SimpleNet.init_and_load(path)
+
+    assert torch.allclose(reloaded_model.linear.weight, model.linear.weight)

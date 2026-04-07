@@ -9,9 +9,11 @@ einops
 einsum
 FIRSTPARTY
 gateloop
+hiddens
 klass
 kornia
 LOCALFOLDER
+locoformer
 mlps
 Multistream
 musdb
@@ -21,6 +23,9 @@ pythonpath
 pytree
 randn
 rdkit
+sdft
+subcheck
+subchecks
 THIRDPARTY
 topk
 torchvision
