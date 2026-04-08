@@ -11,8 +11,8 @@ from torch_einops_utils._types import (
     StrPath as StrPath,
     SupportsIntIndex as SupportsIntIndex,
     T_co as T_co,
-    TVar as TVar,
-    TypeModule as TypeModule
+    TorchNNModule as TorchNNModule,
+    TVar as TVar
 )
 
 # isort: split

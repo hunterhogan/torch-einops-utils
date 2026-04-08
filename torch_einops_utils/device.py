@@ -27,7 +27,13 @@ from torch import Tensor, device
 from torch.nn import Module
 from torch.types import Device
 
-from torch_einops_utils import PSpec, T_co, TypeModule, exists, tree_map_tensor
+from torch_einops_utils import (
+    PSpec,
+    T_co,
+    TorchNNModule,
+    exists,
+    tree_map_tensor
+)
 
 
 def module_device(m: Module) -> device | None:
@@ -171,8 +177,8 @@ def move_inputs_to_device(device: Device) -> Callable[[Callable[PSpec, T_co]], C
 
 
 def move_inputs_to_module_device(
-    fn: Callable[Concatenate[TypeModule, PSpec], T_co],
-) -> Callable[Concatenate[TypeModule, PSpec], T_co]:
+    fn: Callable[Concatenate[TorchNNModule, PSpec], T_co],
+) -> Callable[Concatenate[TorchNNModule, PSpec], T_co]:
     """Create a decorator that moves all tensor arguments to the device of the module.
 
     You can use this function as a decorator on methods of `torch.nn.Module` subclasses [1] to
@@ -256,7 +262,7 @@ def move_inputs_to_module_device(
     """
 
     @wraps(fn)
-    def inner(self: TypeModule, *args: PSpec.args, **kwargs: PSpec.kwargs) -> T_co:
+    def inner(self: TorchNNModule, *args: PSpec.args, **kwargs: PSpec.kwargs) -> T_co:
         device: device | None = module_device(self)
 
         if exists(device):

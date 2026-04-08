@@ -11,7 +11,7 @@ KVar = TypeVar("KVar", bound=Hashable)
 TVar = TypeVar("TVar")
 RVar = TypeVar("RVar")
 T_co = TypeVar("T_co", covariant=True)
-TypeModule = TypeVar("TypeModule", bound=Module)
+TorchNNModule = TypeVar("TorchNNModule", bound=Module)
 
 PSpec = ParamSpec("PSpec")
 
