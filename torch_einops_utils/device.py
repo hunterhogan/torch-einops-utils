@@ -1,19 +1,21 @@
-"""Inspect and route tensor arguments based on module or explicit device assignment.
+"""Determine the compute device of a `torch.nn.Module` instance and route `Tensor` arguments to that device or an explicit target `Device`.
 
-You can use this module to determine the device on which a `torch.nn.Module` resides and to decorate
-functions or methods so that tensor arguments are automatically moved to the appropriate device
-before each call. These utilities remove explicit `.to(device)` calls from each call site and
-centralize device routing in a single decorator.
+You can use this Python module to determine the compute device on which a `torch.nn.Module` instance
+resides and to decorate callables so that `Tensor` arguments are automatically moved to the
+appropriate compute device before each call. These utilities remove explicit `.to(device)` calls from
+each call site and centralize device routing in a single Python decorator.
 
 Contents
 --------
 Functions
     module_device
-        Infer the `torch.device` of a module from its first parameter or buffer.
+        Infer the `torch.device` of a `torch.nn.Module` instance from its first `torch.nn.Parameter`
+        or registered `torch.Tensor` buffer.
     move_inputs_to_device
-        Create a decorator that moves all tensor arguments to a fixed target device.
+        Create a Python decorator that moves all `Tensor` arguments to a fixed target compute device.
     move_inputs_to_module_device
-        Create a decorator that moves all tensor arguments to the device of the module.
+        Wrap a callable so that all `Tensor` arguments are moved to the `torch.device` of the first
+        `torch.nn.Module` argument before each call.
 """
 
 from __future__ import annotations
@@ -21,47 +23,104 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 from itertools import chain
-from typing import Concatenate
+from typing import Concatenate, ParamSpec, TypeGuard, TypeVar
 
 from torch import Tensor, device
 from torch.nn import Module
 from torch.types import Device
 
-from torch_einops_utils import (
-    PSpec,
-    T_co,
-    TorchNNModule,
-    exists,
-    tree_map_tensor
-)
+from torch_einops_utils import tree_map_tensor
+
+T_co = TypeVar("T_co", covariant=True)
+TorchNNModule = TypeVar("TorchNNModule", bound=Module)
+
+PSpec = ParamSpec("PSpec")
+
+# helpers
+
+def exists(v: T_co | None) -> TypeGuard[T_co]:
+    """Test whether `v` is not `None`.
+
+    You can use `exists` as a `None`-guard throughout this package. `exists` returns `True` for any
+    value that is not `None`, including falsy values such as `0`, `False`, and empty collections. The
+    return type is annotated as `TypeGuard[T_co]` [1] so that static analyzers narrow the type of `v`
+    to `T_co` in branches guarded by `exists`.
+
+    Parameters
+    ----------
+    v : T_co | None
+        The value to test.
+
+    Returns
+    -------
+    result : bool
+        `True` when `v is not None`, otherwise `False`.
+
+    See Also
+    --------
+    default : Return a fallback value when `v` is `None`.
+    compact : Filter `None` values from an iterable.
+
+    Examples
+    --------
+    From `torch_einops_utils._masking.lens_to_mask` [2], guarding optional parameter `max_len` before
+    use:
+
+        ```python
+        if not exists(max_len):
+            max_len = int(lens.amax().item())
+        ```
+
+    References
+    ----------
+    [1] TypeGuard - Python typing documentation
+        https://docs.python.org/3/library/typing.html#typing.TypeGuard
+    [2] torch_einops_utils._masking.lens_to_mask
+    """
+    return v is not None
 
 
 def module_device(m: Module) -> device | None:
-    """Infer the `torch.device` of a module from its first parameter or buffer.
+    """Infer the `torch.device` of a `torch.nn.Module` instance from its first `torch.nn.Parameter` or registered `torch.Tensor` buffer.
 
-    You can use this function to determine the device of a `torch.nn.Module` [1] without inspecting
-    its internals directly. The function chains the module's parameters and buffers [2] and returns
-    the device of the first one found. Parameters are checked before buffers. If the module has no
-    parameters or buffers, the function returns `None`.
+    You can use `module_device` to determine the compute device of a `torch.nn.Module` instance
+    without reading the instance's internals directly. `module_device` checks the learnable
+    `torch.nn.Parameter` values of `m` before checking the registered `torch.Tensor` buffer values of
+    `m`, and returns the `torch.device` of the first tensor found. If `m` has no learnable
+    `torch.nn.Parameter` values and no registered `torch.Tensor` buffer values, `module_device`
+    returns `None`.
+
+    PyTorch Details
+    ---------------
+    A `torch.nn.Module` instance tracks two kinds of tensors that reside on a specific compute
+    device: learnable `torch.nn.Parameter` values, returned by `Module.parameters` [2], and
+    registered `torch.Tensor` buffer values, returned by `Module.buffers` [3]. A registered
+    `torch.Tensor` buffer is a named tensor registered via `Module.register_buffer` [4] that
+    participates in device movement through `.to()` and `.cuda()` but is not updated by
+    gradient-based optimizers. `module_device` passes the return of `Module.parameters` and the
+    return of `Module.buffers` to `itertools.chain` [5], takes the first element, and returns that
+    tensor's `.device` attribute.
 
     Parameters
     ----------
     m : Module
-        The module whose device is to be inferred.
+        The `torch.nn.Module` instance whose compute device is to be inferred.
 
     Returns
     -------
     inferredDevice : torch.device | None
-        The device of the first parameter or buffer in the module, or `None` if the module has no
-        parameters or buffers.
+        The `torch.device` of the first `torch.nn.Parameter` or registered `torch.Tensor` buffer in
+        `m`, or `None` if `m` has no `torch.nn.Parameter` values and no registered `torch.Tensor`
+        buffer values.
 
     See Also
     --------
-    move_inputs_to_module_device : Decorator that uses this function to route tensor inputs to the module device.
+    move_inputs_to_module_device : Wrap a callable so that all `Tensor` arguments are moved to the
+        `torch.device` of the first `torch.nn.Module` argument before each call.
 
     Examples
     --------
-    Retrieve the device of a module with parameters [3]:
+    Retrieve the `torch.device` of a `torch.nn.Module` instance with `torch.nn.Parameter` values [6]:
 
         ```python
         import torch
@@ -73,7 +132,8 @@ def module_device(m: Module) -> device | None:
         # inferredDevice == torch.device('cpu')
         ```
 
-    Returns `None` for a module with no parameters or buffers:
+    Returns `None` for a `torch.nn.Module` instance that has no `torch.nn.Parameter` values and no
+    registered `torch.Tensor` buffer values:
 
         ```python
         empty = nn.Identity()
@@ -85,12 +145,17 @@ def module_device(m: Module) -> device | None:
     ----------
     [1] torch.nn.Module - PyTorch documentation
         https://pytorch.org/docs/stable/generated/torch.nn.Module.html
-    [2] torch.nn.Module.buffers - PyTorch documentation
+    [2] torch.nn.Module.parameters - PyTorch documentation
+        https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.parameters
+    [3] torch.nn.Module.buffers - PyTorch documentation
         https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.buffers
-    [3] tests.test_device.test_module_device_returns_expected_device
+    [4] torch.nn.Module.register_buffer - PyTorch documentation
+        https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.register_buffer
+    [5] itertools.chain - Python documentation
+        https://docs.python.org/3/library/itertools.html#itertools.chain
+    [6] tests.test_device.test_module_device_returns_expected_device
 
     """
-
     first_param_or_buffer: Tensor | None = next(chain(m.parameters(), m.buffers()), None)
 
     if not exists(first_param_or_buffer):
@@ -100,33 +165,43 @@ def module_device(m: Module) -> device | None:
 
 
 def move_inputs_to_device(device: Device) -> Callable[[Callable[PSpec, T_co]], Callable[PSpec, T_co]]:
-    """Create a decorator that moves all tensor arguments to a target device before each call.
+    """Create a Python decorator that moves all `Tensor` arguments to a target compute device before each call.
 
-    You can use this function to wrap a callable so that every `torch.Tensor` [1] in the positional
-    and keyword arguments is moved to `device` before the wrapped callable is invoked. Non-tensor
-    arguments are passed through without modification. The function uses `tree_map_tensor` [2] to
-    recurse into containers such as tuples and dictionaries, so tensors nested inside those
-    containers are moved as well.
+    You can use `move_inputs_to_device` to wrap a callable so that every `Tensor` in its positional
+    and keyword arguments is moved to the compute device identified by `device` before the wrapped
+    callable is called. Non-`Tensor` arguments pass through without modification.
+    `move_inputs_to_device` uses `tree_map_tensor` [2] to recurse into containers such as `tuple` and
+    `dict`, so `Tensor` values nested inside those containers are moved as well.
+
+    PyTorch Details
+    ---------------
+    The `device` argument accepts any `Device` value [3], including a `str` such as `"cpu"` or
+    `"cuda"`, an `int` CUDA device index, a `torch.device` instance, or `None`. `tree_map_tensor`
+    applies `Tensor.to(device)` [4] to every `Tensor` found recursively in `args` and `kwargs`. The
+    wrapped callable's signature is preserved by `functools.wraps`.
 
     Parameters
     ----------
     device : Device
-        The target device to which all tensor arguments are moved. Accepts any value valid for
-        `torch.Tensor.to` [3], such as `"cpu"`, `"cuda"`, or a `torch.device` instance.
+        The target compute device to which all `Tensor` arguments are moved. Accepts any value valid
+        for `Tensor.to` [4], such as `"cpu"`, `"cuda"`, an integer CUDA device index, or a
+        `torch.device` instance.
 
     Returns
     -------
-    decorator : Callable[[Callable[PSpec, TVar]], Callable[PSpec, TVar]]
-        A decorator that wraps the given callable, moving its tensor arguments to `device` before
-        each call while preserving the original signature.
+    decorator : Callable[[Callable[PSpec, T_co]], Callable[PSpec, T_co]]
+        A Python decorator that wraps the given callable, moving its `Tensor` arguments to the
+        compute device identified by `device` before each call while preserving the original
+        callable's signature.
 
     See Also
     --------
-    move_inputs_to_module_device : Infers the target device from the module itself.
+    move_inputs_to_module_device : Infer the target compute device from a `torch.nn.Module` instance
+        rather than accepting an explicit `Device` argument.
 
     Examples
     --------
-    Wrap a function so all tensor arguments are moved to the `meta` device [4]:
+    Wrap a callable so all `Tensor` arguments are moved to the `meta` compute device [5]:
 
         ```python
         import torch
@@ -158,9 +233,11 @@ def move_inputs_to_device(device: Device) -> Callable[[Callable[PSpec, T_co]], C
         https://pytorch.org/docs/stable/tensors.html
     [2] torch_einops_utils.torch_einops_utils.tree_map_tensor
 
-    [3] torch.Tensor.to - PyTorch documentation
+    [3] torch.types.Device - PyTorch documentation
+        https://pytorch.org/docs/stable/tensor_attributes.html
+    [4] torch.Tensor.to - PyTorch documentation
         https://pytorch.org/docs/stable/generated/torch.Tensor.to.html
-    [4] tests.test_device.test_move_inputs_to_device_moves_tensor_arguments_in_nested_structures
+    [5] tests.test_device.test_move_inputs_to_device_moves_tensor_arguments_in_nested_structures
 
     """
 
@@ -176,42 +253,51 @@ def move_inputs_to_device(device: Device) -> Callable[[Callable[PSpec, T_co]], C
     return decorator
 
 
-def move_inputs_to_module_device(
-    fn: Callable[Concatenate[TorchNNModule, PSpec], T_co],
-) -> Callable[Concatenate[TorchNNModule, PSpec], T_co]:
-    """Create a decorator that moves all tensor arguments to the device of the module.
+def move_inputs_to_module_device(fn: Callable[Concatenate[TorchNNModule, PSpec], T_co]) -> Callable[Concatenate[TorchNNModule, PSpec], T_co]:
+    """Wrap a callable so that all `Tensor` arguments are moved to the `torch.device` of the first `torch.nn.Module` argument before each call.
 
-    You can use this function as a decorator on methods of `torch.nn.Module` subclasses [1] to
-    automatically move all tensor arguments to the device of the module. The decorator inspects the
-    first argument (`self`) using `module_device` [2] to determine the target device, then uses
-    `tree_map_tensor` [3] to move every `torch.Tensor` found in the positional and keyword arguments.
-    If the module has no parameters or buffers, the tensor arguments are passed through without
-    modification.
+    You can use `move_inputs_to_module_device` as a Python decorator on methods of `torch.nn.Module`
+    subclasses [1] to automatically move all `Tensor` arguments to the compute device of the
+    `torch.nn.Module` instance. `move_inputs_to_module_device` inspects the first argument (`self`)
+    using `module_device` [2] to determine the target `torch.device`, then uses `tree_map_tensor` [3]
+    to move every `Tensor` found in the remaining positional and keyword arguments. If the
+    `torch.nn.Module` instance has no `torch.nn.Parameter` values and no registered `torch.Tensor`
+    buffer values, the `Tensor` arguments pass through without modification.
 
     The first argument of the decorated callable must be a `torch.nn.Module` instance.
-    `typing.Concatenate` [4] expresses the constraint that the first argument is the module while the
-    remaining arguments form `PSpec`.
+
+    PyTorch Details
+    ---------------
+    `typing.Concatenate` [4] expresses the constraint that the first argument of `fn` is a
+    `torch.nn.Module` instance while the remaining arguments form `PSpec`. The `TypeVar` `TorchNNModule`
+    is bound to `Module`, so the type of the first argument reflects the specific `torch.nn.Module`
+    subclass. `tree_map_tensor` applies `Tensor.to(device)` to every `Tensor` found recursively in
+    the non-`self` arguments. The wrapped callable's signature is preserved by `functools.wraps`.
 
     Parameters
     ----------
-    fn : Callable[Concatenate[TypeModule, PSpec], TVar]
+    fn : Callable[Concatenate[TorchNNModule, PSpec], T_co]
         The callable to wrap. The first positional argument must be a `torch.nn.Module` instance
-        whose device is used as the routing target.
+        whose `torch.device` is used as the routing target.
 
     Returns
     -------
-    wrappedMethod : Callable[Concatenate[TypeModule, PSpec], TVar]
-        The wrapped callable with the same signature as `fn`, where all tensor arguments are moved to
-        the module device before each invocation.
+    wrappedMethod : Callable[Concatenate[TorchNNModule, PSpec], T_co]
+        The wrapped callable with the same signature as `fn`, where all `Tensor` arguments after the
+        first `torch.nn.Module` argument are moved to the `torch.device` of that instance before each
+        call.
 
     See Also
     --------
-    module_device : Infer the device of a module from its first parameter or buffer.
-    move_inputs_to_device : Move tensor arguments to an explicit target device.
+    module_device : Infer the `torch.device` of a `torch.nn.Module` instance from its first
+        `torch.nn.Parameter` or registered `torch.Tensor` buffer.
+    move_inputs_to_device : Move `Tensor` arguments to an explicit target compute device rather than
+        inferring it from a `torch.nn.Module` instance.
 
     Examples
     --------
-    Decorate a method so all tensor inputs are moved to the module's device [5]:
+    Decorate a method so all `Tensor` arguments are moved to the `torch.device` of the
+    `torch.nn.Module` instance [5]:
 
         ```python
         import torch
@@ -235,7 +321,7 @@ def move_inputs_to_module_device(
         # result.device == torch.device("meta")
         ```
 
-    Decorate a standalone function and attach it to a class as a method [6]:
+    Decorate a standalone callable and attach it to a `torch.nn.Module` subclass as a method [6]:
 
         ```python
         @move_inputs_to_module_device
@@ -258,7 +344,7 @@ def move_inputs_to_module_device(
     [5] tests.test_device._echo_module_with_parameter
 
     [6] metacontroller.metacontroller.policy_loss
-
+        https://context7.com/lucidrains/metacontroller
     """
 
     @wraps(fn)
