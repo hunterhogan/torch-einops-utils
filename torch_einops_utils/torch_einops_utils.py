@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import wraps
 
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Concatenate, List, Literal, TypeGuard, overload
+from typing import Any, Concatenate, Literal, TypeGuard, overload
 from typing_extensions import Unpack
 from torch.types import Number
 
@@ -13,7 +13,7 @@ import torch.nn.functional as F
 
 from torch.utils._pytree import tree_flatten, tree_unflatten, tree_map, PyTree
 
-from einops import rearrange, repeat, reduce, pack, unpack
+from einops import rearrange, pack, unpack
 
 from torch_einops_utils import decreasing, DimAndValue, IdentityCallable, PSpec, RVar, SupportsIntIndex, T_co, TVar, zeroIndexed
 
@@ -89,7 +89,7 @@ def default(v: TVar | None, d: TVar) -> TVar:
     """
     return v if exists(v) else d
 
-def identity(t: TVar, *args: object, **kwargs: object) -> TVar:
+def identity(t: TVar, *_args: object, **_kwargs: object) -> TVar:
     """Return `t` unchanged, ignoring all other arguments.
 
     You can use `identity` as a no-op callable in contexts that require a function but no
@@ -2105,7 +2105,7 @@ def pack_with_inverse(t: Tensor | list[Tensor], pattern: str) -> tuple[Tensor, C
 
     def inverse(out: Tensor, inv_pattern: str | None = None) -> Tensor | list[Tensor]:
         inv_pattern = default(inv_pattern, pattern)
-        unpacked: List[Tensor] = unpack(out, packed_shape, inv_pattern)
+        unpacked: list[Tensor] = unpack(out, packed_shape, inv_pattern)
 
         if is_one:
             return first(unpacked)

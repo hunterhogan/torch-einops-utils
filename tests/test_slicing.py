@@ -133,7 +133,7 @@ def test_shape_with_replace(t: Tensor, replace_dict: Mapping[int, int] | None, t
             shape_with_replace(t, {t.ndim: 17})
         return
 
-    result = shape_with_replace(t, replace_dict)
+    result = shape_with_replace(t, replace_dict)  # pyright: ignore[reportArgumentType]
 
     if replace_dict is None:
         assert result == t.shape, (
