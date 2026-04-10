@@ -1815,30 +1815,30 @@ def pad_sequence(
     [6] lucidrains/pi-zero-pytorch
         https://github.com/lucidrains/pi-zero-pytorch
     """
-    if len(tensors) == 0:
-        return None
+    output: Tensor | list[Tensor] | tuple[Tensor | list[Tensor], Tensor] | None = None
 
-    device: torch.device = first(tensors).device
+    if 0 < len(tensors):
+        lens: list[int] | Tensor = [t.shape[dim] for t in tensors]
+        max_len: int = max(lens)
 
-    lens: list[int] | Tensor = [t.shape[dim] for t in tensors]
-    max_len: int = max(lens)
+        pad_fn: Callable[..., Tensor] = pad_left_at_dim if left else pad_right_at_dim
+        padded_tensors: list[Tensor] = [pad_fn(t, max_len - t_len, dim = dim, value = value) for t, t_len in zip(tensors, lens, strict=True)]
 
-    pad_fn: Callable[..., Tensor] = pad_left_at_dim if left else pad_right_at_dim
-    padded_tensors: list[Tensor] = [pad_fn(t, max_len - t_len, dim = dim, value = value) for t, t_len in zip(tensors, lens, strict=True)]
+        if return_stacked:
+            output = stack(padded_tensors, dim = dim_stack)
+        else:
+            output = padded_tensors
 
-    output: Tensor | list[Tensor] = padded_tensors
-    if return_stacked:
-        output = stack(output, dim = dim_stack)
+        if return_lens:
+            device: torch.device = first(tensors).device
+            lens = tensor(lens, device=device)
 
-    if not return_lens:
-        return output
+            if pad_lens:
+                lens = max_len - lens
 
-    lens = tensor(lens, device=device)
+            output = (output, lens)
 
-    if pad_lens:
-        lens = max_len - lens
-
-    return output, lens
+    return output
 
 def pad_sequence_and_cat(
     tensors: Sequence[Tensor],
