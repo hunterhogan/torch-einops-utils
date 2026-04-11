@@ -57,8 +57,16 @@ You can combine `decreasing` with other semantic constants:
 References
 ----------
 [1] Built-in Functions - `range` (Python documentation)
-	https://docs.python.org/3/library/functions.html#func-range
+    https://docs.python.org/3/library/functions.html#func-range
 
+Copyright
+---------
+Copyright 2026 Hunter Hogan.
+    https://github.com/hunterhogan
+
+License CC-BY-NC-4.0
+    Attribution-NonCommercial 4.0 International
+    https://creativecommons.org/licenses/by-nc/4.0/deed.en
 """
 
 zeroIndexed: int = 1
@@ -129,6 +137,14 @@ subtraction, compensating for a formula that expects one-based indexing.
 References
 ----------
 [1] Built-in Functions - `range` (Python documentation)
-	https://docs.python.org/3/library/functions.html#func-range
+    https://docs.python.org/3/library/functions.html#func-range
 
+Copyright
+---------
+Copyright 2026 Hunter Hogan.
+    https://github.com/hunterhogan
+
+License CC-BY-NC-4.0
+    Attribution-NonCommercial 4.0 International
+    https://creativecommons.org/licenses/by-nc/4.0/deed.en
 """
