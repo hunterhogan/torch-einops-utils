@@ -314,7 +314,7 @@ def safe(
 def masked_mean(
     t: Tensor,
     mask: Tensor | None = None,
-    dim: int | None = None,
+    dim: torch.Size | list[int] | tuple[int, ...] | int | None = None,
     eps: float = 1e-5,
 ) -> Tensor:
     """Compute the mean of `t` over positions selected by `mask`.
@@ -334,8 +334,8 @@ def masked_mean(
         A boolean tensor selecting which positions contribute to the mean. When `mask` has fewer
         dimensions than `t`, singleton dimensions are appended on the right before broadcasting. Pass
         `None` to compute an unmasked mean.
-    dim : int | None = None
-        The dimension along which to compute the mean. Pass `None` to reduce over all dimensions.
+    dim : torch.Size | list[int] | tuple[int, ...] | int | None = None
+        The dimension or dimensions along which to compute the mean. Pass `None` to reduce over all dimensions.
     eps : float = 1e-5
         A small value added to the denominator to prevent division by zero when computing the masked
         mean along a dimension.
