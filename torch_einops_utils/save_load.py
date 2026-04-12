@@ -1,3 +1,21 @@
+"""Decorate `torch.nn.Module` subclasses with checkpoint save, load, and reconstruct methods.
+
+You can use this module to equip any `torch.nn.Module` subclass with methods that persist a
+checkpoint to disk, restore parameter values into an existing instance, and reconstruct a new
+instance from a checkpoint without hand-written reconstruction code. The module also exposes the
+companion functions that serialize nested decorated modules into checkpoint-safe records and
+deserialize those records back to live instances.
+
+Contents
+--------
+Functions
+    dehydrate_config
+        Convert nested decorated modules in a configuration value into reconstruction records.
+    rehydrate_config
+        Reconstruct nested decorated modules from checkpoint configuration records.
+    save_load
+        Decorate a `torch.nn.Module` subclass with checkpoint save, load, and reconstruct helpers.
+"""
 from __future__ import annotations
 from pathlib import Path
 from packaging import version as packaging_version
